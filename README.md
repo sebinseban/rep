@@ -412,56 +412,58 @@ The GET_VERSION command serves several critical purposes in the SPDM protocol:
 The GET_VERSION request has a fixed format as defined in the SPDM specification:
 
 ```
-+----------------+----------------+----------------+
-| SPDM Header    | Param1 (0x00)  | Param2 (0x00)  |
-+----------------+----------------+----------------+
++----------------+----------------+----------------+----------------+
+| SPDMVersion    | RequestResponseCode | Param1 (0x00)  | Param2 (0x00)  |
++----------------+----------------+----------------+----------------+
 ```
 
 Detailed field breakdown:
 
-| Field | Size (bytes) | Value | Description |
-|-------|--------------|-------|-------------|
-| SPDM Header | 1 | 0x84 | Bits 7-4: 0x8 (SPDM 1.0)<br>Bits 3-0: 0x4 (GET_VERSION) |
-| Param1 | 1 | 0x00 | Reserved, must be 0 |
-| Param2 | 1 | 0x00 | Reserved, must be 0 |
-| Reserved | 2 | 0x0000 | Reserved, must be 0 |
+| Byte offset | Field | Size (bytes) | Value | Description |
+|------------|-------|--------------|-------|--------------|
+| 0 | SPDMVersion | 1 | 0x10 | SPDM Version 1.0 |
+| 1 | RequestResponseCode | 1 | 0x84 | GET_VERSION. See Table 4 — SPDM request codes |
+| 2 | Param1 | 1 | 0x00 | Reserved |
+| 3 | Param2 | 1 | 0x00 | Reserved |
 
 **Important Notes**:
-- The GET_VERSION request must always use SPDM version 1.0 (0x10) in the header, regardless of the Requester's supported versions
+- The GET_VERSION request must always use SPDM version 1.0 (0x10) as the SPDMVersion field, regardless of the Requester's supported versions
 - No additional data is included in the GET_VERSION request
-- The total size of the GET_VERSION request is 6 bytes (including the 2 reserved bytes)
+- The total size of the GET_VERSION request is 4 bytes
 
 #### VERSION Response
 
 The VERSION response contains the list of SPDM versions supported by the Responder:
 
 ```
-+----------------+----------------+----------------+----------------+----------------+
-| SPDM Header    | Param1 (0x00)  | Param2 (0x00)  | Reserved       | VersionCount   |
-+----------------+----------------+----------------+----------------+----------------+
-| VersionEntry[0]| VersionEntry[1]| ...            | VersionEntry[n]| Reserved       |
-+----------------+----------------+----------------+----------------+----------------+
++----------------+----------------+----------------+----------------+----------------+----------------+
+| SPDMVersion    | RequestResponseCode | Param1 (0x00)  | Param2 (0x00)  | Reserved       | VersionNumberEntryCount |
++----------------+----------------+----------------+----------------+----------------+----------------+
+| VersionNumberEntry1 | VersionNumberEntry2 | ...            | VersionNumberEntry_n |
++----------------+----------------+----------------+----------------+
 ```
 
 Detailed field breakdown:
 
-| Field | Size (bytes) | Description |
-|-------|--------------|-------------|
-| SPDM Header | 1 | Bits 7-4: 0x0 (SPDM 1.0)<br>Bits 3-0: 0x4 (VERSION) |
-| Param1 | 1 | Reserved, must be 0 |
-| Param2 | 1 | Reserved, must be 0 |
-| Reserved | 1 | Reserved, must be 0 |
-| VersionCount | 1 | Number of version entries |
-| VersionEntry[i] | 2 × VersionCount | Array of supported SPDM versions |
-| Reserved | 2 | Reserved |
-| VersionNumberFormat | 2 | Format of version numbers (always 0x0001) |
+| Byte offset | Field | Size (bytes) | Value | Description |
+|------------|-------|--------------|-------|-------------|
+| 0 | SPDMVersion | 1 | 0x10 | SPDM Version 1.0 |
+| 1 | RequestResponseCode | 1 | 0x04 | VERSION. See Table 5 — SPDM response codes |
+| 2 | Param1 | 1 | 0x00 | Reserved |
+| 3 | Param2 | 1 | 0x00 | Reserved |
+| 4 | Reserved | 1 | 0x00 | Reserved |
+| 5 | VersionNumberEntryCount | 1 | n | Number of version entries present in this table (=n) |
+| 6 | VersionNumberEntry1:n | 2×n | - | 16-bit version entries. See VersionNumberEntry definition below |
 
-**Version Entry Format**:
+**VersionNumberEntry Definition (Table 10)**:
 - Each version entry is a 16-bit value with the following bit allocation:
-  - Bits 15-12: Major version
-  - Bits 11-8: Minor version
-  - Bits 7-4: Update version
-  - Bits 3-0: Alpha version
+
+| Bit offset | Field | Description |
+|------------|-------|-------------|
+| [15:12] | MajorVersion | Version of the specification with changes that are incompatible with one or more functions in earlier major versions of the specification. |
+| [11:8] | MinorVersion | Version of the specification with changes that are compatible with functions in earlier minor versions of this major version specification. |
+| [7:4] | UpdateVersionNumber | Version of the specification with editorial updates and errata fixes. Informational; ignore when checking versions for interoperability. |
+| [3:0] | Alpha | Pre-release work-in-progress version of the specification. Backward compatible with earlier minor versions of this major version specification. However, because the Alpha value represents an in-development version of the specification, versions that share the same major and minor version numbers but have different Alpha versions might not be fully interoperable. Released versions shall have an Alpha value of zero (0). |
 
 **Common Version Values**:
 - 0x10: SPDM 1.0
@@ -571,54 +573,242 @@ When the Requester receives an error response to a GET_VERSION request, it shoul
 
 **Request (MCTP + SPDM)**:
 ```
-05 84 00 00 00 00
+05 10 84 00 00
 ```
 
 Breakdown:
 - `05`: MCTP header (message type 0x05 for SPDM)
-- `84`: SPDM header (version 1.0, request code 0x4 for GET_VERSION)
-- `00 00 00 00`: Reserved bytes
+- `10`: SPDMVersion (SPDM 1.0)
+- `84`: RequestResponseCode (GET_VERSION)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
 
 **Response (MCTP + SPDM)**:
 ```
-05 04 00 00 00 03 10 00 11 00 12 00 00 00 01 00
+05 10 04 00 00 00 03 10 00 11 00 12 00
 ```
 
 Breakdown:
 - `05`: MCTP header (message type 0x05 for SPDM)
-- `04`: SPDM header (version 1.0, response code 0x4 for VERSION)
-- `00 00`: Reserved bytes
+- `10`: SPDMVersion (SPDM 1.0)
+- `04`: RequestResponseCode (VERSION)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
 - `00`: Reserved byte
-- `03`: Version number entry count (3 versions supported)
+- `03`: VersionNumberEntryCount (3 versions supported)
 - `10 00`: SPDM version 1.0 in little-endian format
 - `11 00`: SPDM version 1.1 in little-endian format
 - `12 00`: SPDM version 1.2 in little-endian format
-- `00 00`: Reserved bytes
-- `01 00`: Version number format (1 in little-endian)
 
 #### Error Response Example
 
 **VERSION_MISMATCH Error Response (MCTP + SPDM)**:
 ```
-05 7F 06 00
+05 10 7F 06 00
 ```
 
 Breakdown:
 - `05`: MCTP header (message type 0x05 for SPDM)
-- `7F`: SPDM header (version 1.0, response code 0x7F for ERROR)
+- `10`: SPDMVersion (SPDM 1.0)
+- `7F`: RequestResponseCode (ERROR)
 - `06`: Error code (VERSION_MISMATCH)
 - `00`: Error data
 
 **BUSY Error Response (MCTP + SPDM)**:
 ```
-05 7F 02 00
+05 10 7F 02 00
 ```
 
 Breakdown:
 - `05`: MCTP header (message type 0x05 for SPDM)
-- `7F`: SPDM header (version 1.0, response code 0x7F for ERROR)
+- `10`: SPDMVersion (SPDM 1.0)
+- `7F`: RequestResponseCode (ERROR)
 - `02`: Error code (BUSY)
 - `00`: Error data
+
+#### Additional GET_VERSION Examples
+
+**Example 1: GET_VERSION with Single Version Response**
+
+Request (MCTP + SPDM):
+```
+05 10 84 00 00
+```
+
+Response (MCTP + SPDM):
+```
+05 10 04 00 00 00 01 10 00
+```
+
+Breakdown of Response:
+- `05`: MCTP header (message type 0x05 for SPDM)
+- `10`: SPDMVersion (SPDM 1.0)
+- `04`: RequestResponseCode (VERSION)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
+- `00`: Reserved byte
+- `01`: VersionNumberEntryCount (1 version supported)
+- `10 00`: SPDM version 1.0 in little-endian format
+
+**Example 2: GET_VERSION with Multiple Versions Including SPDM 1.3**
+
+Request (MCTP + SPDM):
+```
+05 10 84 00 00
+```
+
+Response (MCTP + SPDM):
+```
+05 10 04 00 00 00 04 10 00 11 00 12 00 13 00
+```
+
+Breakdown of Response:
+- `05`: MCTP header (message type 0x05 for SPDM)
+- `10`: SPDMVersion (SPDM 1.0)
+- `04`: RequestResponseCode (VERSION)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
+- `00`: Reserved byte
+- `04`: VersionNumberEntryCount (4 versions supported)
+- `10 00`: SPDM version 1.0 in little-endian format
+- `11 00`: SPDM version 1.1 in little-endian format
+- `12 00`: SPDM version 1.2 in little-endian format
+- `13 00`: SPDM version 1.3 in little-endian format
+
+**Example 3: GET_VERSION with UNEXPECTED_REQUEST Error Response**
+
+Request (MCTP + SPDM):
+```
+05 10 84 00 00
+```
+
+Response (MCTP + SPDM):
+```
+05 10 7F 03 00
+```
+
+Breakdown of Response:
+- `05`: MCTP header (message type 0x05 for SPDM)
+- `10`: SPDMVersion (SPDM 1.0)
+- `7F`: RequestResponseCode (ERROR)
+- `03`: Error code (UNEXPECTED_REQUEST)
+- `00`: Error data
+
+**Example 4: GET_VERSION with RESPONSE_NOT_READY Error Response**
+
+Request (MCTP + SPDM):
+```
+05 10 84 00 00
+```
+
+Response (MCTP + SPDM):
+```
+05 10 7F 07 00 10 84 00 00 00
+```
+
+Breakdown of Response:
+- `05`: MCTP header (message type 0x05 for SPDM)
+- `10`: SPDMVersion (SPDM 1.0)
+- `7F`: RequestResponseCode (ERROR)
+- `07`: Error code (RESPONSE_NOT_READY)
+- `00`: Extended Error Data
+- `10`: Request SPDMVersion
+- `84`: Request RequestResponseCode (GET_VERSION)
+- `00 00 00`: Additional error data
+
+**Example 5: GET_VERSION with Alpha Version Response**
+
+Request (MCTP + SPDM):
+```
+05 10 84 00 00
+```
+
+Response (MCTP + SPDM):
+```
+05 10 04 00 00 00 02 10 00 13 01
+```
+
+Breakdown of Response:
+- `05`: MCTP header (message type 0x05 for SPDM)
+- `10`: SPDMVersion (SPDM 1.0)
+- `04`: RequestResponseCode (VERSION)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
+- `00`: Reserved byte
+- `02`: VersionNumberEntryCount (2 versions supported)
+- `10 00`: SPDM version 1.0 in little-endian format
+- `13 01`: SPDM version 1.3.0.1 (Alpha version 1 of SPDM 1.3) in little-endian format
+
+**Example 6: GET_VERSION with Update Version Response**
+
+Request (MCTP + SPDM):
+```
+05 10 84 00 00
+```
+
+Response (MCTP + SPDM):
+```
+05 10 04 00 00 00 02 10 00 12 10
+```
+
+Breakdown of Response:
+- `05`: MCTP header (message type 0x05 for SPDM)
+- `10`: SPDMVersion (SPDM 1.0)
+- `04`: RequestResponseCode (VERSION)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
+- `00`: Reserved byte
+- `02`: VersionNumberEntryCount (2 versions supported)
+- `10 00`: SPDM version 1.0 in little-endian format
+- `12 10`: SPDM version 1.2.1.0 (Update version 1 of SPDM 1.2) in little-endian format
+
+**Example 7: GET_VERSION with UNSUPPORTED_REQUEST Error Response**
+
+Request (MCTP + SPDM):
+```
+05 10 84 00 00
+```
+
+Response (MCTP + SPDM):
+```
+05 10 7F 05 00
+```
+
+Breakdown of Response:
+- `05`: MCTP header (message type 0x05 for SPDM)
+- `10`: SPDMVersion (SPDM 1.0)
+- `7F`: RequestResponseCode (ERROR)
+- `05`: Error code (UNSUPPORTED_REQUEST)
+- `00`: Error data
+
+**Example 8: Raw GET_VERSION Request and Response (without MCTP encapsulation)**
+
+Raw Request (SPDM only):
+```
+10 84 00 00
+```
+
+Breakdown of Raw Request:
+- `10`: SPDMVersion (SPDM 1.0)
+- `84`: RequestResponseCode (GET_VERSION)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
+
+Raw Response (SPDM only):
+```
+10 04 00 00 00 03 10 00 11 00 12 00
+```
+
+Breakdown of Raw Response:
+- `10`: SPDMVersion (SPDM 1.0)
+- `04`: RequestResponseCode (VERSION)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
+- `00`: Reserved byte
+- `03`: VersionNumberEntryCount (3 versions supported)
+- `10 00`: SPDM version 1.0 in little-endian format
+- `11 00`: SPDM version 1.1 in little-endian format
+- `12 00`: SPDM version 1.2 in little-endian format
 
 ## GET_CAPABILITIES Command
 
@@ -638,92 +828,63 @@ The GET_CAPABILITIES command serves several critical purposes in the SPDM protoc
 
 #### GET_CAPABILITIES Request
 
-The GET_CAPABILITIES request format varies based on the SPDM version:
+The GET_CAPABILITIES request format as defined in the SPDM specification:
 
-**SPDM 1.0 Format**:
 ```
++----------------+----------------+----------------+----------------+----------------+----------------+----------------+
+| SPDMVersion    | RequestResponseCode | Param1 (0x00)  | Param2 (0x00)  | Reserved       | CTExponent     | Reserved       |
++----------------+----------------+----------------+----------------+----------------+----------------+----------------+
+| Flags          | DataTransferSize | MaxSPDMmsgSize |
 +----------------+----------------+----------------+
-| SPDM Header    | Param1 (0x00)  | Param2 (0x00)  |
-+----------------+----------------+----------------+
-```
-
-**SPDM 1.1 Format**:
-```
-+----------------+----------------+----------------+----------------+----------------+----------------+----------------+
-| SPDM Header    | Param1 (0x00)  | Param2 (0x00)  | Reserved       | CT_Exponent    | Reserved       | Flags          |
-+----------------+----------------+----------------+----------------+----------------+----------------+----------------+
-```
-
-**SPDM 1.2+ Format**:
-```
-+----------------+----------------+----------------+----------------+----------------+----------------+----------------+
-| SPDM Header    | Param1 (0x00)  | Param2 (0x00)  | Reserved       | CT_Exponent    | Reserved       | Flags          |
-+----------------+----------------+----------------+----------------+----------------+----------------+----------------+
-| DataTransSize  | MaxSPDMmsgSize |
-+----------------+----------------+
 ```
 
 Detailed field breakdown:
 
-| Field | Size (bytes) | Value | Description |
-|-------|--------------|-------|-------------|
-| SPDM Header | 1 | Varies | Bits 7-4: SPDM version<br>Bits 3-0: 0x1 (GET_CAPABILITIES) |
-| Param1 | 1 | 0x00 | Reserved, must be 0 |
-| Param2 | 1 | 0x00 | Reserved, must be 0 |
-| Reserved | 1 | 0x00 | Reserved, must be 0 |
-| CT_Exponent | 1 | 0-32 | Exponent for calculating response times (2^CT_Exponent μs) |
-| Reserved | 2 | 0x0000 | Reserved, must be 0 |
-| Flags | 4 | Varies | Bitmap of supported capabilities (see Capability Flags section) |
-| DataTransSize | 4 | ≥42 | Maximum size of data that can be transferred in a single message |
-| MaxSPDMmsgSize | 4 | ≥DataTransSize | Maximum size of an entire SPDM message |
+| Byte offset | Field | Size (bytes) | Value | Description |
+|------------|-------|--------------|-------|-------------|
+| 0 | SPDMVersion | 1 | Varies | Shall be the SPDMVersion as described in SPDM version |
+| 1 | RequestResponseCode | 1 | 0xE1 | GET_CAPABILITIES. See Table 4 — SPDM request codes |
+| 2 | Param1 | 1 | 0x00 | Reserved |
+| 3 | Param2 | 1 | 0x00 | Reserved |
+| 4 | Reserved | 1 | 0x00 | Reserved |
+| 5 | CTExponent | 1 | 0-32 | Exponent of base 2, used to calculate CT. The equation for CT shall be 2^CTExponent microseconds (μs). For example, if CTExponent is 10, CT is 2^10 = 1024 μs |
+| 6 | Reserved | 2 | 0x0000 | Reserved |
+| 8 | Flags | 4 | Varies | Bitmap of supported capabilities. See Table 11 — Flag fields definitions for the Requester |
+| 12 | DataTransferSize | 4 | ≥MinDataTransferSize | Maximum buffer size, in bytes, for receiving a single and complete SPDM message. The value shall be equal to or greater than MinDataTransferSize. The DataTransferSize excludes transport headers, encryption headers, and MAC |
+| 16 | MaxSPDMmsgSize | 4 | ≥DataTransferSize | Maximum size, in bytes, of the internal buffer used to reassemble a single and complete Large SPDM message. This field shall be greater than or equal to DataTransferSize |
 
 **Important Notes**:
-- The CT_Exponent field is only present in SPDM 1.1 and later
-- The Flags field is only present in SPDM 1.1 and later
-- The DataTransSize and MaxSPDMmsgSize fields are only present in SPDM 1.2 and later
-- In SPDM 1.2+, DataTransSize must be at least 42 bytes
-- In SPDM 1.2+, MaxSPDMmsgSize must be greater than or equal to DataTransSize
+- The SPDMVersion field shall match the negotiated SPDM version from the GET_VERSION exchange
+- The DataTransferSize field helps the sender know whether to use the Large SPDM message transfer mechanism
+- If the Requester does not support the Large SPDM message transfer mechanism, MaxSPDMmsgSize shall be equal to DataTransferSize
+- The MinDataTransferSize value depends on the SPDM version (typically 42 bytes for SPDM 1.2+)
 
 #### CAPABILITIES Response
 
-The CAPABILITIES response format mirrors the request format for each SPDM version:
+The CAPABILITIES response format as defined in the SPDM specification:
 
-**SPDM 1.0 Format**:
-```
-+----------------+----------------+----------------+----------------+
-| SPDM Header    | Param1 (0x00)  | Param2 (0x00)  | Flags          |
-+----------------+----------------+----------------+----------------+
-```
-
-**SPDM 1.1 Format**:
 ```
 +----------------+----------------+----------------+----------------+----------------+----------------+----------------+
-| SPDM Header    | Param1 (0x00)  | Param2 (0x00)  | Reserved       | CT_Exponent    | Reserved       | Flags          |
+| SPDMVersion    | RequestResponseCode | Param1 (0x00)  | Param2 (0x00)  | Reserved       | CTExponent     | Reserved       |
 +----------------+----------------+----------------+----------------+----------------+----------------+----------------+
-```
-
-**SPDM 1.2+ Format**:
-```
-+----------------+----------------+----------------+----------------+----------------+----------------+----------------+
-| SPDM Header    | Param1 (0x00)  | Param2 (0x00)  | Reserved       | CT_Exponent    | Reserved       | Flags          |
-+----------------+----------------+----------------+----------------+----------------+----------------+----------------+
-| DataTransSize  | MaxSPDMmsgSize |
-+----------------+----------------+
+| Flags          | DataTransferSize | MaxSPDMmsgSize |
++----------------+----------------+----------------+
 ```
 
 Detailed field breakdown:
 
-| Field | Size (bytes) | Description |
-|-------|--------------|-------------|
-| SPDM Header | 1 | Bits 7-4: SPDM version<br>Bits 3-0: 0x61 (CAPABILITIES) |
-| Param1 | 1 | Reserved, must be 0 |
-| Param2 | 1 | Reserved, must be 0 |
-| Reserved | 1 | Reserved, must be 0 |
-| CT_Exponent | 1 | Exponent for calculating response times (2^CT_Exponent μs) |
-| Reserved | 2 | Reserved, must be 0 |
-| Flags | 4 | Bitmap of supported capabilities (see Capability Flags section) |
-| DataTransSize | 4 | Maximum size of data that can be transferred in a single message |
-| MaxSPDMmsgSize | 4 | Maximum size of an entire SPDM message |
+| Byte offset | Field | Size (bytes) | Value | Description |
+|------------|-------|--------------|-------|-------------|
+| 0 | SPDMVersion | 1 | Varies | Shall be the SPDMVersion as described in SPDM version |
+| 1 | RequestResponseCode | 1 | 0x61 | CAPABILITIES. See Table 5 — SPDM response codes |
+| 2 | Param1 | 1 | 0x00 | Reserved |
+| 3 | Param2 | 1 | 0x00 | Reserved |
+| 4 | Reserved | 1 | 0x00 | Reserved |
+| 5 | CTExponent | 1 | 0-32 | Exponent of base 2, used to calculate CT. The equation for CT shall be 2^CTExponent microseconds (μs) |
+| 6 | Reserved | 2 | 0x0000 | Reserved |
+| 8 | Flags | 4 | Varies | Bitmap of supported capabilities. See Table 12 — Flag fields definitions for the Responder |
+| 12 | DataTransferSize | 4 | ≥MinDataTransferSize | Maximum buffer size, in bytes, for receiving a single and complete SPDM message |
+| 16 | MaxSPDMmsgSize | 4 | ≥DataTransferSize | Maximum size, in bytes, of the internal buffer used to reassemble a single and complete Large SPDM message |
 
 ### Capability Flags
 
@@ -731,53 +892,113 @@ The Flags field in both the request and response is a 32-bit bitmap that indicat
 
 #### Requester Capability Flags (GET_CAPABILITIES Request)
 
-| Flag Bit | Value | SPDM Version | Name | Description |
-|----------|-------|--------------|------|-------------|
-| 1 | 0x00000002 | 1.1+ | CERT_CAP | Requester can process certificates |
-| 2 | 0x00000004 | 1.1+ | CHAL_CAP | Requester can issue challenges |
-| 6 | 0x00000040 | 1.1+ | ENCRYPT_CAP | Requester supports encryption |
-| 7 | 0x00000080 | 1.1+ | MAC_CAP | Requester supports MAC |
-| 8 | 0x00000100 | 1.1+ | MUT_AUTH_CAP | Requester supports mutual authentication |
-| 9 | 0x00000200 | 1.1+ | KEY_EX_CAP | Requester supports key exchange |
-| 10-11 | 0x00000400<br>0x00000800 | 1.1+ | PSK_CAP | Requester supports PSK (Pre-Shared Key)<br>0x400: PSK without context<br>0x800: PSK with context |
-| 12 | 0x00001000 | 1.1+ | ENCAP_CAP | Requester supports encapsulated requests |
-| 13 | 0x00002000 | 1.1+ | HBEAT_CAP | Requester supports heartbeat |
-| 14 | 0x00004000 | 1.1+ | KEY_UPD_CAP | Requester supports key update |
-| 15 | 0x00008000 | 1.2+ | HANDSHAKE_IN_THE_CLEAR_CAP | Requester supports handshake in the clear |
-| 16 | 0x00010000 | 1.2+ | PUB_KEY_ID_CAP | Requester supports public key ID |
-| 17 | 0x00020000 | 1.2+ | CHUNK_CAP | Requester supports chunking |
-| 22-23 | 0x00400000<br>0x00800000 | 1.3+ | EP_INFO_CAP | Requester supports endpoint info<br>0x400000: Without signature<br>0x800000: With signature |
-| 25 | 0x02000000 | 1.3+ | EVENT_CAP | Requester supports event notifications |
-| 26-27 | 0x04000000<br>0x08000000 | 1.3+ | MULTI_KEY_CAP | Requester supports multiple keys<br>0x04000000: Only mode<br>0x08000000: Negotiation mode |
+Table 11 — Flag fields definitions for the Requester:
+
+| Byte offset | Bit offset | Field | Description |
+|------------|------------|-------|-------------|
+| 0 | 0 | Reserved | Reserved |
+| 0 | 1 | CERT_CAP | If set, Requester shall support DIGESTS and CERTIFICATE response messages |
+| 0 | 2 | CHAL_CAP | DEPRECATED: If set, Requester shall support CHALLENGE_AUTH response message |
+| 0 | [5:3] | Reserved | Reserved |
+| 0 | 6 | ENCRYPT_CAP | If set, Requester shall support message encryption in a secure session. If set, when the Requester chooses to start a secure session, the Requester shall send one of the Session-Secrets-Exchange request messages supported by the Responder |
+| 0 | 7 | MAC_CAP | If set, Requester shall support message authentication in a secure session. If set, when the Requester chooses to start a secure session, the Requester shall send one of the Session-Secrets-Exchange request messages supported by the Responder. MAC_CAP is not the same as the HMAC in the RequesterVerifyData or ResponderVerifyData fields of Session-Secrets-Exchange and Session-Secrets-Finish messages |
+| 1 | 0 | MUT_AUTH_CAP | If set, Requester shall support mutual authentication |
+| 1 | 1 | KEY_EX_CAP | If set, Requester shall support KEY_EXCHANGE request message. If set, ENCRYPT_CAP or MAC_CAP shall be set |
+| 1 | [3:2] | PSK_CAP | Pre-shared key capabilities of the Requester.<br>• 00b: Requester shall not support pre-shared key capabilities<br>• 01b: Requester shall support pre-shared key capabilities<br>• 10b and 11b: Reserved<br>If supported, ENCRYPT_CAP or MAC_CAP shall be set |
+| 1 | 4 | ENCAP_CAP | If set, Requester shall support GET_ENCAPSULATED_REQUEST, ENCAPSULATED_REQUEST, DELIVER_ENCAPSULATED_RESPONSE, and ENCAPSULATED_RESPONSE_ACK messages. Additionally, the transport may require the Requester to support these messages. ENCAP_CAP was previously deprecated because Basic mutual authentication is deprecated. Deprecation is removed since other messages may require ENCAP_CAP such as KEY_UPDATE which does not require mutual authentication |
+| 1 | 5 | HBEAT_CAP | If set, Requester shall support HEARTBEAT messages |
+| 1 | 6 | KEY_UPD_CAP | If set, Requester shall support KEY_UPDATE messages |
+| 1 | 7 | HANDSHAKE_IN_THE_CLEAR_CAP | If set, the Requester can support a Responder that can only send and receive all SPDM messages exchanged during the Session Handshake Phase in the clear (such as without encryption and message authentication). Application data is encrypted and/or authenticated using the negotiated cryptographic algorithms as normal. Setting this bit leads to changes in the contents of certain SPDM messages, discussed in other parts of this specification.<br>If this bit is cleared, the Requester signals that it requires encryption and/or message authentication of SPDM messages exchanged during the Session Handshake Phase.<br>If the Requester does not support encryption and message authentication, then this bit shall be zero.<br>In other words, this bit indicates whether MAC_CAP and ENCRYPT_CAP is involved accordingly in the handshake phase of a secure session or both encryption and message authentication capabilities are disabled in the session handshake phase of a secure session |
+| 2 | 0 | PUB_KEY_ID_CAP | If set, the public key of the Requester was provisioned to the Responder. The transport layer is responsible for identifying the Responder. In this case, the CERT_CAP of the Requester shall be 0 |
+| 2 | 1 | CHUNK_CAP | If set, Requester shall support Large SPDM message transfer mechanism messages |
+| 2 | [7:2] | Reserved | Reserved |
+| 3 | [7:0] | Reserved | Reserved |
+
+**Bit-to-Value Mapping**:
+
+| Flag Bit | Value | SPDM Version | Name |
+|----------|-------|--------------|------|
+| 1 | 0x00000002 | 1.1+ | CERT_CAP |
+| 2 | 0x00000004 | 1.1+ | CHAL_CAP (DEPRECATED) |
+| 6 | 0x00000040 | 1.1+ | ENCRYPT_CAP |
+| 7 | 0x00000080 | 1.1+ | MAC_CAP |
+| 8 | 0x00000100 | 1.1+ | MUT_AUTH_CAP |
+| 9 | 0x00000200 | 1.1+ | KEY_EX_CAP |
+| 10 | 0x00000400 | 1.1+ | PSK_CAP (01b) |
+| 12 | 0x00001000 | 1.1+ | ENCAP_CAP |
+| 13 | 0x00002000 | 1.1+ | HBEAT_CAP |
+| 14 | 0x00004000 | 1.1+ | KEY_UPD_CAP |
+| 15 | 0x00008000 | 1.2+ | HANDSHAKE_IN_THE_CLEAR_CAP |
+| 16 | 0x00010000 | 1.2+ | PUB_KEY_ID_CAP |
+| 17 | 0x00020000 | 1.2+ | CHUNK_CAP |
+| 22 | 0x00400000 | 1.3+ | EP_INFO_CAP (Without signature) |
+| 23 | 0x00800000 | 1.3+ | EP_INFO_CAP (With signature) |
+| 25 | 0x02000000 | 1.3+ | EVENT_CAP |
+| 26 | 0x04000000 | 1.3+ | MULTI_KEY_CAP (Only mode) |
+| 27 | 0x08000000 | 1.3+ | MULTI_KEY_CAP (Negotiation mode) |
 
 #### Responder Capability Flags (CAPABILITIES Response)
 
-| Flag Bit | Value | SPDM Version | Name | Description |
-|----------|-------|--------------|------|-------------|
-| 0 | 0x00000001 | 1.0+ | CACHE_CAP | Responder supports caching |
-| 1 | 0x00000002 | 1.0+ | CERT_CAP | Responder has certificates |
-| 2 | 0x00000004 | 1.0+ | CHAL_CAP | Responder supports challenge |
-| 3-4 | 0x00000008<br>0x00000010 | 1.0+ | MEAS_CAP | Responder supports measurements<br>0x8: Without signature<br>0x10: With signature |
-| 5 | 0x00000020 | 1.0+ | MEAS_FRESH_CAP | Responder supports fresh measurements |
-| 6 | 0x00000040 | 1.1+ | ENCRYPT_CAP | Responder supports encryption |
-| 7 | 0x00000080 | 1.1+ | MAC_CAP | Responder supports MAC |
-| 8 | 0x00000100 | 1.1+ | MUT_AUTH_CAP | Responder supports mutual authentication |
-| 9 | 0x00000200 | 1.1+ | KEY_EX_CAP | Responder supports key exchange |
-| 10-11 | 0x00000400<br>0x00000800 | 1.1+ | PSK_CAP | Responder supports PSK<br>0x400: Without context<br>0x800: With context |
-| 12 | 0x00001000 | 1.1+ | ENCAP_CAP | Responder supports encapsulated requests |
-| 13 | 0x00002000 | 1.1+ | HBEAT_CAP | Responder supports heartbeat |
-| 14 | 0x00004000 | 1.1+ | KEY_UPD_CAP | Responder supports key update |
-| 15 | 0x00008000 | 1.2+ | HANDSHAKE_IN_THE_CLEAR_CAP | Responder supports handshake in the clear |
-| 16 | 0x00010000 | 1.2+ | PUB_KEY_ID_CAP | Responder supports public key ID |
-| 17 | 0x00020000 | 1.2+ | CHUNK_CAP | Responder supports chunking |
-| 18 | 0x00040000 | 1.2+ | ALIAS_CERT_CAP | Responder supports alias certificates |
-| 19 | 0x00080000 | 1.2+ | SET_CERT_CAP | Responder supports setting certificates |
-| 20 | 0x00100000 | 1.2+ | CSR_CAP | Responder supports CSR |
-| 22-23 | 0x00400000<br>0x00800000 | 1.3+ | EP_INFO_CAP | Responder supports endpoint info<br>0x400000: Without signature<br>0x800000: With signature |
-| 24 | 0x01000000 | 1.3+ | MEL_CAP | Responder supports measurement extension log |
-| 25 | 0x02000000 | 1.3+ | EVENT_CAP | Responder supports event notifications |
-| 26-27 | 0x04000000<br>0x08000000 | 1.3+ | MULTI_KEY_CAP | Responder supports multiple keys<br>0x04000000: Only mode<br>0x08000000: Negotiation mode |
-| 28 | 0x10000000 | 1.3+ | GET_KEY_PAIR_INFO_CAP | Responder supports key pair info |
+Table 12 — Flag fields definitions for the Responder:
+
+| Byte offset | Bit offset | Field | Description |
+|------------|------------|-------|-------------|
+| 0 | 0 | CACHE_CAP | If set, the Responder shall support the ability to cache the Negotiated State across a Reset. This allows the Requester to skip reissuing the GET_VERSION, GET_CAPABILITIES and NEGOTIATE_ALGORITHMS requests after a Reset. The Responder shall cache the selected cryptographic algorithms as one of the parameters of the Negotiated State. If the Requester chooses to skip issuing these requests after the Reset, the Requester shall also cache the same selected cryptographic algorithms |
+| 0 | 1 | CERT_CAP | If set, Responder shall support DIGESTS and CERTIFICATE response messages |
+| 0 | 2 | CHAL_CAP | If set, Responder shall support CHALLENGE_AUTH response message |
+| 0 | [4:3] | MEAS_CAP | MEASUREMENTS response capabilities of the Responder.<br>• 00b: The Responder shall not support MEASUREMENTS response capabilities<br>• 01b: The Responder shall support MEASUREMENTS response but cannot perform signature generation<br>• 10b: The Responder shall support MEASUREMENTS response and can generate signatures<br>• 11b: Reserved<br>Note that, apart from affecting MEASUREMENTS, this capability also affects Param2 of CHALLENGE, Param1 of KEY_EXCHANGE, Param1 of PSK_EXCHANGE, MeasurementSummaryHash field of KEY_EXCHANGE_RSP, CHALLENGE_AUTH, PSK_EXCHANGE_RSP. See the respective request and response clauses for further details |
+| 0 | 5 | MEAS_FRESH_CAP | 0: As part of MEASUREMENTS response message, the Responder may return MEASUREMENTS that were computed during the last Responder's Reset<br>1: The Responder shall support recomputing all MEASUREMENTS without requiring a Reset, and shall always return fresh MEASUREMENTS as part of MEASUREMENTS response message |
+| 0 | 6 | ENCRYPT_CAP | If set, Responder shall support message encryption in a secure session. If set, PSK_CAP or KEY_EX_CAP shall be set accordingly to indicate support |
+| 0 | 7 | MAC_CAP | If set, Responder shall support message authentication in a secure session. If set, PSK_CAP or KEY_EX_CAP shall be set accordingly to indicate support. MAC_CAP is not the same as the HMAC in the RequesterVerifyData or ResponderVerifyData fields of Session-Secrets-Exchange and Session-Secrets-Finish messages |
+| 1 | 0 | MUT_AUTH_CAP | If set, Responder shall support mutual authentication |
+| 1 | 1 | KEY_EX_CAP | If set, Responder shall support KEY_EXCHANGE_RSP response message. If set, ENCRYPT_CAP or MAC_CAP shall be set |
+| 1 | [3:2] | PSK_CAP | Pre-Shared Key capabilities of the Responder.<br>• 00b: Responder shall not support Pre-Shared Key capabilities<br>• 01b: Responder shall support Pre-Shared Key without ResponderContext for session key derivation<br>• 10b: Responder shall support Pre-Shared Key with ResponderContext for session key derivation<br>• 11b: Reserved<br>If supported, ENCRYPT_CAP or MAC_CAP shall be set |
+| 1 | 4 | ENCAP_CAP | If set, Responder shall support GET_ENCAPSULATED_REQUEST, ENCAPSULATED_REQUEST, DELIVER_ENCAPSULATED_RESPONSE, and ENCAPSULATED_RESPONSE_ACK messages. Additionally, the transport may require the Responder to support these messages. ENCAP_CAP was previously deprecated because Basic mutual authentication is deprecated. Deprecation is removed since other messages may require ENCAP_CAP such as KEY_UPDATE which does not require mutual authentication |
+| 1 | 5 | HBEAT_CAP | If set, Responder shall support HEARTBEAT messages |
+| 1 | 6 | KEY_UPD_CAP | If set, Responder shall support KEY_UPDATE messages |
+| 1 | 7 | HANDSHAKE_IN_THE_CLEAR_CAP | If set, the Responder can only send and receive messages without encryption and message authentication during the Session Handshake Phase. If set, KEY_EX_CAP shall also be set. Setting this bit leads to changes in the contents of certain SPDM messages, discussed in other parts of this specification.<br>If the Responder does not support encryption and message authentication, then this bit shall be zero.<br>In other words, this bit indicates whether MAC_CAP and ENCRYPT_CAP is involved accordingly in the handshake phase of a secure session or both encryption and message authentication capabilities are disabled in the session handshake phase of a secure session |
+| 2 | 0 | PUB_KEY_ID_CAP | If set, the public key of the Responder was provisioned to the Requester. The transport layer is responsible for identifying the Requester. In this case, CERT_CAP and ALIAS_CERT_CAP of the Responder shall both be 0 |
+| 2 | 1 | CHUNK_CAP | If set, Responder shall support Large SPDM message transfer mechanism messages |
+| 2 | 2 | ALIAS_CERT_CAP | If set, the Responder uses the AliasCert model. See Identity provisioning for details |
+| 2 | 3 | SET_CERT_CAP | If set, Responder shall support SET_CERTIFICATE_RSP response messages |
+| 2 | 4 | CSR_CAP | If set, Responder shall support CSR response messages. If this bit is set SET_CERT_CAP shall be set |
+| 2 | 5 | CERT_INSTALL_RESET_CAP | If set, Responder may return an ERROR message with ErrorCode = ResetRequired to complete a certificate provisioning request. If this bit is set, CSR_CAP and/or SET_CERT_CAP shall be set |
+| 2 | [7:6] | Reserved | Reserved |
+| 3 | [7:0] | Reserved | Reserved |
+
+**Bit-to-Value Mapping**:
+
+| Flag Bit | Value | SPDM Version | Name |
+|----------|-------|--------------|------|
+| 0 | 0x00000001 | 1.0+ | CACHE_CAP |
+| 1 | 0x00000002 | 1.0+ | CERT_CAP |
+| 2 | 0x00000004 | 1.0+ | CHAL_CAP |
+| 3 | 0x00000008 | 1.0+ | MEAS_CAP (Without signature) |
+| 4 | 0x00000010 | 1.0+ | MEAS_CAP (With signature) |
+| 5 | 0x00000020 | 1.0+ | MEAS_FRESH_CAP |
+| 6 | 0x00000040 | 1.1+ | ENCRYPT_CAP |
+| 7 | 0x00000080 | 1.1+ | MAC_CAP |
+| 8 | 0x00000100 | 1.1+ | MUT_AUTH_CAP |
+| 9 | 0x00000200 | 1.1+ | KEY_EX_CAP |
+| 10 | 0x00000400 | 1.1+ | PSK_CAP (Without context) |
+| 11 | 0x00000800 | 1.1+ | PSK_CAP (With context) |
+| 12 | 0x00001000 | 1.1+ | ENCAP_CAP |
+| 13 | 0x00002000 | 1.1+ | HBEAT_CAP |
+| 14 | 0x00004000 | 1.1+ | KEY_UPD_CAP |
+| 15 | 0x00008000 | 1.2+ | HANDSHAKE_IN_THE_CLEAR_CAP |
+| 16 | 0x00010000 | 1.2+ | PUB_KEY_ID_CAP |
+| 17 | 0x00020000 | 1.2+ | CHUNK_CAP |
+| 18 | 0x00040000 | 1.2+ | ALIAS_CERT_CAP |
+| 19 | 0x00080000 | 1.2+ | SET_CERT_CAP |
+| 20 | 0x00100000 | 1.2+ | CSR_CAP |
+| 21 | 0x00200000 | 1.2+ | CERT_INSTALL_RESET_CAP |
+| 22 | 0x00400000 | 1.3+ | EP_INFO_CAP (Without signature) |
+| 23 | 0x00800000 | 1.3+ | EP_INFO_CAP (With signature) |
+| 24 | 0x01000000 | 1.3+ | MEL_CAP |
+| 25 | 0x02000000 | 1.3+ | EVENT_CAP |
+| 26 | 0x04000000 | 1.3+ | MULTI_KEY_CAP (Only mode) |
+| 27 | 0x08000000 | 1.3+ | MULTI_KEY_CAP (Negotiation mode) |
+| 28 | 0x10000000 | 1.3+ | GET_KEY_PAIR_INFO_CAP |
 
 ### Protocol Flow
 
@@ -900,15 +1121,17 @@ When the Requester receives an error response to a GET_CAPABILITIES request, it 
 
 **Request (MCTP + SPDM)**:
 ```
-05 E1 00 00 00 0A 00 00 00 00 03 E4
+05 11 E1 00 00 00 0A 00 00 00 00 03 E4
 ```
 
 Breakdown:
 - `05`: MCTP header (message type 0x05 for SPDM)
-- `E1`: SPDM header (version 1.1, request code 0x1 for GET_CAPABILITIES)
-- `00 00`: Reserved bytes
+- `11`: SPDMVersion (SPDM 1.1)
+- `E1`: RequestResponseCode (GET_CAPABILITIES)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
 - `00`: Reserved byte
-- `0A`: CT_Exponent (10)
+- `0A`: CTExponent (10)
 - `00 00`: Reserved bytes
 - `00 00 03 E4`: Flags (0x000003E4) indicating support for:
   - CERT_CAP (0x2)
@@ -920,15 +1143,17 @@ Breakdown:
 
 **Response (MCTP + SPDM)**:
 ```
-05 61 00 00 00 0C 00 00 00 00 03 F7
+05 11 61 00 00 00 0C 00 00 00 00 03 F7
 ```
 
 Breakdown:
 - `05`: MCTP header (message type 0x05 for SPDM)
-- `61`: SPDM header (version 1.1, response code 0x61 for CAPABILITIES)
-- `00 00`: Reserved bytes
+- `11`: SPDMVersion (SPDM 1.1)
+- `61`: RequestResponseCode (CAPABILITIES)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
 - `00`: Reserved byte
-- `0C`: CT_Exponent (12)
+- `0C`: CTExponent (12)
 - `00 00`: Reserved bytes
 - `00 00 03 F7`: Flags (0x000003F7) indicating support for:
   - CACHE_CAP (0x1)
@@ -945,59 +1170,297 @@ Breakdown:
 
 **Request (MCTP + SPDM)**:
 ```
-05 E1 00 00 00 0A 00 00 00 00 03 E4 00 00 10 00 00 00 20 00
+05 12 E1 00 00 00 0A 00 00 00 00 03 E4 00 00 10 00 00 00 20 00
 ```
 
 Breakdown:
 - `05`: MCTP header (message type 0x05 for SPDM)
-- `E1`: SPDM header (version 1.2, request code 0x1 for GET_CAPABILITIES)
-- `00 00`: Reserved bytes
+- `12`: SPDMVersion (SPDM 1.2)
+- `E1`: RequestResponseCode (GET_CAPABILITIES)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
 - `00`: Reserved byte
-- `0A`: CT_Exponent (10)
+- `0A`: CTExponent (10)
 - `00 00`: Reserved bytes
 - `00 00 03 E4`: Flags (0x000003E4)
-- `00 00 10 00`: DataTransSize (4096 bytes)
+- `00 00 10 00`: DataTransferSize (4096 bytes)
 - `00 00 20 00`: MaxSPDMmsgSize (8192 bytes)
 
 **Response (MCTP + SPDM)**:
 ```
-05 61 00 00 00 0C 00 00 00 00 03 F7 00 00 08 00 00 00 10 00
+05 12 61 00 00 00 0C 00 00 00 00 03 F7 00 00 08 00 00 00 10 00
 ```
 
 Breakdown:
 - `05`: MCTP header (message type 0x05 for SPDM)
-- `61`: SPDM header (version 1.2, response code 0x61 for CAPABILITIES)
-- `00 00`: Reserved bytes
+- `12`: SPDMVersion (SPDM 1.2)
+- `61`: RequestResponseCode (CAPABILITIES)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
 - `00`: Reserved byte
-- `0C`: CT_Exponent (12)
+- `0C`: CTExponent (12)
 - `00 00`: Reserved bytes
 - `00 00 03 F7`: Flags (0x000003F7)
-- `00 00 08 00`: DataTransSize (2048 bytes)
+- `00 00 08 00`: DataTransferSize (2048 bytes)
 - `00 00 10 00`: MaxSPDMmsgSize (4096 bytes)
 
 #### Error Response Example
 
 **UNEXPECTED_REQUEST Error Response (MCTP + SPDM)**:
 ```
-05 7F 03 00
+05 10 7F 03 00
 ```
 
 Breakdown:
 - `05`: MCTP header (message type 0x05 for SPDM)
-- `7F`: SPDM header (version 1.0, response code 0x7F for ERROR)
+- `10`: SPDMVersion (SPDM 1.0)
+- `7F`: RequestResponseCode (ERROR)
 - `03`: Error code (UNEXPECTED_REQUEST)
 - `00`: Error data
 
 **INVALID_REQUEST Error Response (MCTP + SPDM)**:
 ```
-05 7F 01 00
+05 10 7F 01 00
 ```
 
 Breakdown:
 - `05`: MCTP header (message type 0x05 for SPDM)
-- `7F`: SPDM header (version 1.0, response code 0x7F for ERROR)
+- `10`: SPDMVersion (SPDM 1.0)
+- `7F`: RequestResponseCode (ERROR)
 - `01`: Error code (INVALID_REQUEST)
 - `00`: Error data
+
+**Raw GET_CAPABILITIES Example (without MCTP encapsulation)**
+
+Raw Request (SPDM only):
+```
+12 E1 00 00 00 0A 00 00 00 00 03 E4 00 00 10 00 00 00 20 00
+```
+
+Breakdown of Raw Request:
+- `12`: SPDMVersion (SPDM 1.2)
+- `E1`: RequestResponseCode (GET_CAPABILITIES)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
+- `00`: Reserved byte
+- `0A`: CTExponent (10)
+- `00 00`: Reserved bytes
+- `00 00 03 E4`: Flags (0x000003E4)
+- `00 00 10 00`: DataTransferSize (4096 bytes)
+- `00 00 20 00`: MaxSPDMmsgSize (8192 bytes)
+
+Raw Response (SPDM only):
+```
+12 61 00 00 00 0C 00 00 00 00 03 F7 00 00 08 00 00 00 10 00
+```
+
+Breakdown of Raw Response:
+- `12`: SPDMVersion (SPDM 1.2)
+- `61`: RequestResponseCode (CAPABILITIES)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
+- `00`: Reserved byte
+- `0C`: CTExponent (12)
+- `00 00`: Reserved bytes
+- `00 00 03 F7`: Flags (0x000003F7)
+- `00 00 08 00`: DataTransferSize (2048 bytes)
+- `00 00 10 00`: MaxSPDMmsgSize (4096 bytes)
+
+#### Additional GET_CAPABILITIES Examples
+
+**Example 1: SPDM 1.3 GET_CAPABILITIES with Minimal Capabilities**
+
+Request (MCTP + SPDM):
+```
+05 13 E1 00 00 00 0A 00 00 00 00 00 42 00 00 00 2A 00 00 00 2A
+```
+
+Breakdown:
+- `05`: MCTP header (message type 0x05 for SPDM)
+- `13`: SPDMVersion (SPDM 1.3)
+- `E1`: RequestResponseCode (GET_CAPABILITIES)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
+- `00`: Reserved byte
+- `0A`: CTExponent (10)
+- `00 00`: Reserved bytes
+- `00 00 00 42`: Flags (0x00000042) indicating support for:
+  - CERT_CAP (0x2)
+  - ENCRYPT_CAP (0x40)
+- `00 00 00 2A`: DataTransferSize (42 bytes, minimum required size)
+- `00 00 00 2A`: MaxSPDMmsgSize (42 bytes, same as DataTransferSize)
+
+Response (MCTP + SPDM):
+```
+05 13 61 00 00 00 0C 00 00 00 00 00 27 00 00 00 2A 00 00 00 2A
+```
+
+Breakdown:
+- `05`: MCTP header (message type 0x05 for SPDM)
+- `13`: SPDMVersion (SPDM 1.3)
+- `61`: RequestResponseCode (CAPABILITIES)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
+- `00`: Reserved byte
+- `0C`: CTExponent (12)
+- `00 00`: Reserved bytes
+- `00 00 00 27`: Flags (0x00000027) indicating support for:
+  - CACHE_CAP (0x1)
+  - CERT_CAP (0x2)
+  - CHAL_CAP (0x4)
+  - MEAS_FRESH_CAP (0x20)
+- `00 00 00 2A`: DataTransferSize (42 bytes)
+- `00 00 00 2A`: MaxSPDMmsgSize (42 bytes)
+
+**Example 2: GET_CAPABILITIES with Extensive Capabilities**
+
+Request (MCTP + SPDM):
+```
+05 12 E1 00 00 00 0A 00 00 00 00 3F FC 00 01 00 00 00 02 00 00
+```
+
+Breakdown:
+- `05`: MCTP header (message type 0x05 for SPDM)
+- `12`: SPDMVersion (SPDM 1.2)
+- `E1`: RequestResponseCode (GET_CAPABILITIES)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
+- `00`: Reserved byte
+- `0A`: CTExponent (10)
+- `00 00`: Reserved bytes
+- `00 00 3F FC`: Flags (0x00003FFC) indicating support for:
+  - CERT_CAP (0x2)
+  - CHAL_CAP (0x4)
+  - ENCRYPT_CAP (0x40)
+  - MAC_CAP (0x80)
+  - MUT_AUTH_CAP (0x100)
+  - KEY_EX_CAP (0x200)
+  - PSK_CAP (0x400)
+  - ENCAP_CAP (0x1000)
+  - HBEAT_CAP (0x2000)
+  - KEY_UPD_CAP (0x4000)
+  - HANDSHAKE_IN_THE_CLEAR_CAP (0x8000)
+  - PUB_KEY_ID_CAP (0x10000)
+  - CHUNK_CAP (0x20000)
+- `00 01 00 00`: DataTransferSize (65536 bytes)
+- `00 02 00 00`: MaxSPDMmsgSize (131072 bytes)
+
+Response (MCTP + SPDM):
+```
+05 12 61 00 00 00 0C 00 00 00 00 3F F7 00 00 80 00 00 01 00 00
+```
+
+Breakdown:
+- `05`: MCTP header (message type 0x05 for SPDM)
+- `12`: SPDMVersion (SPDM 1.2)
+- `61`: RequestResponseCode (CAPABILITIES)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
+- `00`: Reserved byte
+- `0C`: CTExponent (12)
+- `00 00`: Reserved bytes
+- `00 00 3F F7`: Flags (0x00003FF7) indicating support for:
+  - CACHE_CAP (0x1)
+  - CERT_CAP (0x2)
+  - CHAL_CAP (0x4)
+  - MEAS_CAP (0x10) - With signature
+  - MEAS_FRESH_CAP (0x20)
+  - ENCRYPT_CAP (0x40)
+  - MAC_CAP (0x80)
+  - MUT_AUTH_CAP (0x100)
+  - KEY_EX_CAP (0x200)
+  - PSK_CAP (0x400)
+  - ENCAP_CAP (0x1000)
+  - HBEAT_CAP (0x2000)
+  - KEY_UPD_CAP (0x4000)
+  - HANDSHAKE_IN_THE_CLEAR_CAP (0x8000)
+  - PUB_KEY_ID_CAP (0x10000)
+  - CHUNK_CAP (0x20000)
+- `00 00 80 00`: DataTransferSize (32768 bytes)
+- `00 01 00 00`: MaxSPDMmsgSize (65536 bytes)
+
+**Example 3: GET_CAPABILITIES with BUSY Error and Retry**
+
+Request (MCTP + SPDM):
+```
+05 11 E1 00 00 00 0A 00 00 00 00 03 E4
+```
+
+Response (MCTP + SPDM) - First attempt:
+```
+05 10 7F 02 03
+```
+
+Breakdown of Error Response:
+- `05`: MCTP header (message type 0x05 for SPDM)
+- `10`: SPDMVersion (SPDM 1.0)
+- `7F`: RequestResponseCode (ERROR)
+- `02`: Error code (BUSY)
+- `03`: Error data (Retry after 2^3 = 8 microseconds)
+
+Request (MCTP + SPDM) - Retry after delay:
+```
+05 11 E1 00 00 00 0A 00 00 00 00 03 E4
+```
+
+Response (MCTP + SPDM) - After retry:
+```
+05 11 61 00 00 00 0C 00 00 00 00 03 F7
+```
+
+**Example 4: GET_CAPABILITIES with RESPONSE_NOT_READY Error**
+
+Request (MCTP + SPDM):
+```
+05 12 E1 00 00 00 0A 00 00 00 00 03 E4 00 00 10 00 00 00 20 00
+```
+
+Response (MCTP + SPDM):
+```
+05 12 7F 07 00 12 E1 00 00 00 0A 00 00 00 00 03 E4 00 00 10 00 00 00 20 00
+```
+
+Breakdown of Error Response:
+- `05`: MCTP header (message type 0x05 for SPDM)
+- `12`: SPDMVersion (SPDM 1.2)
+- `7F`: RequestResponseCode (ERROR)
+- `07`: Error code (RESPONSE_NOT_READY)
+- `00`: Extended Error Data
+- `12`: Request SPDMVersion
+- `E1`: Request RequestResponseCode (GET_CAPABILITIES)
+- Remaining bytes: Original request parameters
+
+**Example 5: SPDM 1.0 GET_CAPABILITIES (Simplified Format)**
+
+Request (MCTP + SPDM):
+```
+05 10 E1 00 00
+```
+
+Breakdown:
+- `05`: MCTP header (message type 0x05 for SPDM)
+- `10`: SPDMVersion (SPDM 1.0)
+- `E1`: RequestResponseCode (GET_CAPABILITIES)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
+
+Response (MCTP + SPDM):
+```
+05 10 61 00 00 00 00 00 37
+```
+
+Breakdown:
+- `05`: MCTP header (message type 0x05 for SPDM)
+- `10`: SPDMVersion (SPDM 1.0)
+- `61`: RequestResponseCode (CAPABILITIES)
+- `00`: Param1 (Reserved)
+- `00`: Param2 (Reserved)
+- `00 00 00 37`: Flags (0x00000037) indicating support for:
+  - CACHE_CAP (0x1)
+  - CERT_CAP (0x2)
+  - CHAL_CAP (0x4)
+  - MEAS_CAP (0x10) - With signature
+  - MEAS_FRESH_CAP (0x20)
 
 ## NEGOTIATE_ALGORITHMS Command
 
@@ -1017,105 +1480,91 @@ The NEGOTIATE_ALGORITHMS command serves several critical purposes in the SPDM pr
 
 #### NEGOTIATE_ALGORITHMS Request
 
-The NEGOTIATE_ALGORITHMS request format varies based on the SPDM version:
+Table 13 — NEGOTIATE_ALGORITHMS request message format:
 
-**SPDM 1.0 Format**:
 ```
 +----------------+----------------+----------------+----------------+----------------+----------------+
-| SPDM Header    | Length         | MeasSpec       | Reserved       | BaseAsymAlgo   | BaseHashAlgo   |
+| SPDMVersion    | RequestResponseCode | Param1        | Param2 (0x00)  | Length         | MeasurementSpecification |
 +----------------+----------------+----------------+----------------+----------------+----------------+
-| Reserved       | ExtAsymCount   | ExtHashCount   | Reserved       | ExtAsym[n]     | ExtHash[n]     |
+| OtherParamsSupport | BaseAsymAlgo  | BaseHashAlgo   | Reserved       | ExtAsymCount   | ExtHashCount   |
 +----------------+----------------+----------------+----------------+----------------+----------------+
-```
-
-**SPDM 1.1+ Format**:
-```
-+----------------+----------------+----------------+----------------+----------------+----------------+
-| SPDM Header    | Length         | MeasSpec       | OtherParams    | BaseAsymAlgo   | BaseHashAlgo   |
-+----------------+----------------+----------------+----------------+----------------+----------------+
-| Reserved       | ExtAsymCount   | ExtHashCount   | Reserved       | ExtAsym[n]     | ExtHash[n]     |
-+----------------+----------------+----------------+----------------+----------------+----------------+
-| AlgStruct[m]   |
-+----------------+
+| Reserved       | ExtAsym[A]     | ExtHash[E]     | ReqAlgStruct   |
++----------------+----------------+----------------+----------------+
 ```
 
 Detailed field breakdown:
 
-| Field | Size (bytes) | Description |
-|-------|--------------|-------------|
-| SPDM Header | 1 | Bits 7-4: SPDM version<br>Bits 3-0: 0x3 (NEGOTIATE_ALGORITHMS)<br>Param1: Number of algorithm structure tables (SPDM 1.1+)<br>Param2: Reserved |
-| Length | 2 | Total length of the request in bytes |
-| MeasSpec | 1 | Bitmap of supported measurement specifications |
-| OtherParams | 1 | Other parameters (SPDM 1.2+)<br>Bits 0-3: Opaque data format support<br>Bit 4: Responder multi-key connection (SPDM 1.3+)<br>Bits 5-7: Reserved |
-| BaseAsymAlgo | 4 | Bitmap of supported base asymmetric algorithms |
-| BaseHashAlgo | 4 | Bitmap of supported base hash algorithms |
-| Reserved | 12 | Reserved bytes |
-| ExtAsymCount | 1 | Number of extended asymmetric algorithm entries |
-| ExtHashCount | 1 | Number of extended hash algorithm entries |
-| Reserved/MELSpec | 1 | Reserved in SPDM 1.0-1.2<br>MEL specification in SPDM 1.3+ |
-| ExtAsym[n] | 4 × ExtAsymCount | Extended asymmetric algorithm entries |
-| ExtHash[n] | 4 × ExtHashCount | Extended hash algorithm entries |
-| AlgStruct[m] | Varies | Algorithm structure tables (SPDM 1.1+) |
+| Byte offset | Field | Size (bytes) | Value | Description |
+|------------|-------|--------------|-------|-------------|
+| 0 | SPDMVersion | 1 | Varies | Shall be the SPDMVersion as described in SPDM version |
+| 1 | RequestResponseCode | 1 | 0xE3 | NEGOTIATE_ALGORITHMS. See Table 4 — SPDM request codes |
+| 2 | Param1 | 1 | Varies | Number of algorithms structure tables in this request using ReqAlgStruct |
+| 3 | Param2 | 1 | 0x00 | Reserved |
+| 4 | Length | 2 | Varies | Length of the entire request message, in bytes. Length shall be less than or equal to 128 bytes |
+| 6 | MeasurementSpecification | 1 | Varies | Bit mask. The measurement specification is used in the MEASUREMENTS response. The Requester can set zero or one bit to indicate the measurement specification support.<br>• Bit 0: This bit shall indicate support for the DMTF-defined measurement specification. See Table 43 — DMTF measurement specification format |
+| 7 | OtherParamsSupport | 1 | Varies | Selection Bit mask.<br>Bits [3:0] - See Opaque Data Format Support and Selection Table<br>Bits [7:4] - Reserved |
+| 8 | BaseAsymAlgo | 4 | Varies | Bit mask listing Requester-supported SPDM-enumerated asymmetric key signature algorithms for the purpose of signature verification. If the capabilities do not support this algorithm, this value is not used and shall be set to zero. Let SigLen be the size of the signature in bytes.<br>• Byte 0 Bit 0: TPM_ALG_RSASSA_2048 where SigLen=256<br>• Byte 0 Bit 1: TPM_ALG_RSAPSS_2048 where SigLen=256<br>• Byte 0 Bit 2: TPM_ALG_RSASSA_3072 where SigLen=384<br>• Byte 0 Bit 3: TPM_ALG_RSAPSS_3072 where SigLen=384<br>• Byte 0 Bit 4: TPM_ALG_ECDSA_ECC_NIST_P256 where SigLen=64 (32-byte r followed by 32-byte s)<br>• Byte 0 Bit 5: TPM_ALG_RSASSA_4096 where SigLen=512<br>• Byte 0 Bit 6: TPM_ALG_RSAPSS_4096 where SigLen=512<br>• Byte 0 Bit 7: TPM_ALG_ECDSA_ECC_NIST_P384 where SigLen=96 (48-byte r followed by 48-byte s)<br>• Byte 1 Bit 0: TPM_ALG_ECDSA_ECC_NIST_P521 where SigLen=132 (66-byte r followed by 66-byte s)<br>• Byte 1 Bit 1: TPM_ALG_SM2_ECC_SM2_P256 where SigLen=64 (32-byte SM2_R followed by 32-byte SM2_S)<br>• Byte 1 Bit 2: EdDSA ed25519 where SigLen=64 (32-byte R followed by 32-byte S)<br>• Byte 1 Bit 3: EdDSA ed448 where SigLen=114 (57-byte R followed by 57-byte S)<br>• All other values reserved |
+| 12 | BaseHashAlgo | 4 | Varies | Bit mask listing Requester-supported SPDM-enumerated cryptographic hashing algorithms. If the capabilities do not support this algorithm, this value is not used and shall be set to zero.<br>• Byte 0 Bit 0: TPM_ALG_SHA_256<br>• Byte 0 Bit 1: TPM_ALG_SHA_384<br>• Byte 0 Bit 2: TPM_ALG_SHA_512<br>• Byte 0 Bit 3: TPM_ALG_SHA3_256<br>• Byte 0 Bit 4: TPM_ALG_SHA3_384<br>• Byte 0 Bit 5: TPM_ALG_SHA3_512<br>• Byte 0 Bit 6: TPM_ALG_SM3_256<br>• All other values reserved |
+| 16 | Reserved | 12 | 0x00 | Reserved |
+| 28 | ExtAsymCount | 1 | A | Number of Requester-supported extended asymmetric key signature algorithms (=A) for the purpose of signature verification. A + E + ExtAlgCount2 + ExtAlgCount3 + ExtAlgCount4 + ExtAlgCount5 shall be less than or equal to 20. If the capabilities do not support this algorithm, this value is not used and shall be set to zero |
+| 29 | ExtHashCount | 1 | E | Number of Requester-supported extended hashing algorithms (=E). A + E + ExtAlgCount2 + ExtAlgCount3 + ExtAlgCount4 + ExtAlgCount5 shall be less than or equal to 20. If the capabilities do not support this algorithm, this value is not used and shall be set to zero |
+| 30 | Reserved | 2 | 0x0000 | Reserved |
+| 32 | ExtAsym | 4 × A | Varies | List of Requester-supported extended asymmetric key signature algorithms for the purpose of signature verification. Table 25 — Extended Algorithm field format describes the format of this field |
+| 32 + 4 × A | ExtHash | 4 × E | Varies | List of the extended hashing algorithms supported by Requester. Table 25 — Extended Algorithm field format describes the format of this field |
+| 32 + 4 × A + 4 × E | ReqAlgStruct | AlgStructSize | Varies | See the AlgStructure request field |
 
-**Algorithm Structure Table Format**:
-```
-+----------------+----------------+----------------+----------------+
-| AlgType        | AlgCount       | AlgSupported   | AlgExternal[n] |
-+----------------+----------------+----------------+----------------+
-```
+**Table 14 — Algorithm request structure**:
 
-| Field | Size (bytes) | Description |
-|-------|--------------|-------------|
-| AlgType | 1 | Type of algorithm (DHE, AEAD, ReqBaseAsym, KeySchedule) |
-| AlgCount | 1 | Bits 0-3: Number of extended algorithm entries<br>Bits 4-7: Size of fixed algorithm field in bytes |
-| AlgSupported | 2 | Bitmap of supported algorithms for this type |
-| AlgExternal[n] | 4 × ExtAlgCount | Extended algorithm entries |
+| Byte offset | Field | Size (bytes) | Description |
+|------------|-------|--------------|-------------|
+| 0 | AlgType | 1 | Type of algorithm.<br>• 0 and 1: Reserved<br>• 2: DHE<br>• 3: AEADCipherSuite<br>• 4: ReqBaseAsymAlg<br>• 5: KeySchedule<br>• All other values reserved |
+| 1 | AlgCount | 1 | Requester supported fixed algorithms.<br>• Bit [7:4]: Number of bytes required to describe Requester supported SPDM-enumerated fixed algorithms (= FixedAlgCount). FixedAlgCount + 2 shall be a multiple of 4<br>• Bit [3:0]: Number of Requester-supported extended algorithms (= ExtAlgCount) |
+| 2 | AlgSupported | FixedAlgCount | Bit mask listing Requester-supported SPDM-enumerated algorithms |
+| 2 + FixedAlgCount | AlgExternal | 4 × ExtAlgCount | List of Requester-supported extended algorithms. Table 25 — Extended Algorithm field format describes the format of this field |
+
+**Table 15 — DHE structure**:
+
+| Byte offset | Field | Size (bytes) | Description |
+|------------|-------|--------------|-------------|
+| 0 | AlgType | 1 | 0x02 = DHE |
+| 1 | AlgCount | 1 | • Bit [7:4]: Shall be a value of 2<br>• Bit [3:0]: Number of Requester-supported extended DHE groups (= ExtAlgCount2) |
+| 2 | AlgSupported | 2 | Bit mask listing Requester-supported SPDM-enumerated Diffie-Hellman Ephemeral (DHE) groups. Values in parentheses specify the size of the corresponding public values associated with each group.<br>• Byte 0 Bit 0: ffdhe2048 (D = 256)<br>• Byte 0 Bit 1: ffdhe3072 (D = 384)<br>• Byte 0 Bit 2: ffdhe4096 (D = 512)<br>• Byte 0 Bit 3: secp256r1 (D = 64, C = 32)<br>• Byte 0 Bit 4: secp384r1 (D = 96, C = 48)<br>• Byte 0 Bit 5: secp521r1 (D = 132, C = 66)<br>• Byte 0 Bit 6: SM2_P256 (Part 3 and Part 5 of GB/T 32918 specification) (D = 64, C = 32)<br>• All other values reserved |
+| 4 | AlgExternal | 4 × ExtAlgCount2 | List of Requester-supported extended DHE groups. Table 25 — Extended Algorithm field format describes the format of this field |
 
 #### ALGORITHMS Response
 
-The ALGORITHMS response format mirrors the request format for each SPDM version:
+The ALGORITHMS response format follows a similar structure to the request format:
 
-**SPDM 1.0 Format**:
 ```
 +----------------+----------------+----------------+----------------+----------------+----------------+
-| SPDM Header    | Length         | MeasSpecSel    | Reserved       | MeasHashAlgo   | BaseAsymSel    |
+| SPDMVersion    | RequestResponseCode | Param1        | Param2 (0x00)  | Length         | MeasurementSpecificationSel |
 +----------------+----------------+----------------+----------------+----------------+----------------+
-| BaseHashSel    | Reserved       | ExtAsymSelCount| ExtHashSelCount| Reserved       | ExtAsymSel[n]  |
+| OtherParamsSelSupport | BaseAsymAlgoSel | BaseHashAlgoSel | Reserved       | ExtAsymSelCount | ExtHashSelCount |
 +----------------+----------------+----------------+----------------+----------------+----------------+
-| ExtHashSel[n]  |
-+----------------+
-```
-
-**SPDM 1.1+ Format**:
-```
-+----------------+----------------+----------------+----------------+----------------+----------------+
-| SPDM Header    | Length         | MeasSpecSel    | OtherParamsSel | MeasHashAlgo   | BaseAsymSel    |
-+----------------+----------------+----------------+----------------+----------------+----------------+
-| BaseHashSel    | Reserved       | MELSpecSel     | ExtAsymSelCount| ExtHashSelCount| Reserved       |
-+----------------+----------------+----------------+----------------+----------------+----------------+
-| ExtAsymSel[n]  | ExtHashSel[n]  | AlgStructSel[m]|
-+----------------+----------------+----------------+
+| Reserved       | ExtAsymSel[A]  | ExtHashSel[E]  | AlgStructSel   |
++----------------+----------------+----------------+----------------+
 ```
 
 Detailed field breakdown:
 
-| Field | Size (bytes) | Description |
-|-------|--------------|-------------|
-| SPDM Header | 1 | Bits 7-4: SPDM version<br>Bits 3-0: 0x63 (ALGORITHMS)<br>Param1: Number of algorithm structure tables (SPDM 1.1+)<br>Param2: Reserved |
-| Length | 2 | Total length of the response in bytes |
-| MeasSpecSel | 1 | Selected measurement specification |
-| OtherParamsSel | 1 | Selected other parameters (SPDM 1.2+)<br>Bits 0-3: Selected opaque data format<br>Bit 4: Selected responder multi-key connection (SPDM 1.3+)<br>Bits 5-7: Reserved |
-| MeasHashAlgo | 4 | Selected measurement hash algorithm |
-| BaseAsymSel | 4 | Selected base asymmetric algorithm |
-| BaseHashSel | 4 | Selected base hash algorithm |
-| Reserved | 11 | Reserved bytes |
-| MELSpecSel | 1 | Selected MEL specification (SPDM 1.3+) |
-| ExtAsymSelCount | 1 | Number of extended asymmetric algorithm selections |
-| ExtHashSelCount | 1 | Number of extended hash algorithm selections |
-| Reserved | 2 | Reserved bytes |
-| ExtAsymSel[n] | 4 × ExtAsymSelCount | Selected extended asymmetric algorithms |
-| ExtHashSel[n] | 4 × ExtHashSelCount | Selected extended hash algorithms |
-| AlgStructSel[m] | Varies | Selected algorithm structure tables (SPDM 1.1+) |
+| Byte offset | Field | Size (bytes) | Value | Description |
+|------------|-------|--------------|-------|-------------|
+| 0 | SPDMVersion | 1 | Varies | Shall be the SPDMVersion as described in SPDM version |
+| 1 | RequestResponseCode | 1 | 0x63 | ALGORITHMS. See Table 5 — SPDM response codes |
+| 2 | Param1 | 1 | Varies | Number of algorithms structure tables in this response |
+| 3 | Param2 | 1 | 0x00 | Reserved |
+| 4 | Length | 2 | Varies | Length of the entire response message, in bytes |
+| 6 | MeasurementSpecificationSel | 1 | Varies | Selected measurement specification |
+| 7 | OtherParamsSelSupport | 1 | Varies | Selected other parameters<br>Bits [3:0] - Selected opaque data format<br>Bits [7:4] - Reserved |
+| 8 | BaseAsymAlgoSel | 4 | Varies | Selected base asymmetric algorithm |
+| 12 | BaseHashAlgoSel | 4 | Varies | Selected base hash algorithm |
+| 16 | Reserved | 12 | 0x00 | Reserved |
+| 28 | ExtAsymSelCount | 1 | A | Number of selected extended asymmetric key signature algorithms (=A) |
+| 29 | ExtHashSelCount | 1 | E | Number of selected extended hashing algorithms (=E) |
+| 30 | Reserved | 2 | 0x0000 | Reserved |
+| 32 | ExtAsymSel | 4 × A | Varies | List of selected extended asymmetric key signature algorithms |
+| 32 + 4 × A | ExtHashSel | 4 × E | Varies | List of selected extended hashing algorithms |
+| 32 + 4 × A + 4 × E | AlgStructSel | AlgStructSize | Varies | Selected algorithm structure tables |
 
 ### Algorithm Types
 
@@ -1298,63 +1747,69 @@ When the Requester receives an error response to a NEGOTIATE_ALGORITHMS request,
 
 **Request (MCTP + SPDM)**:
 ```
-05 E3 00 00 40 00 01 00 00 00 00 04 00 00 00 07 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+05 10 E3 00 00 40 00 01 00 00 00 00 04 00 00 00 07 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 ```
 
 Breakdown:
 - `05`: MCTP header (message type 0x05 for SPDM)
-- `E3`: SPDM header (version 1.0, request code 0x3 for NEGOTIATE_ALGORITHMS)
-- `00 00`: Param1 (0) and Param2 (0)
+- `10`: SPDMVersion (SPDM 1.0)
+- `E3`: RequestResponseCode (NEGOTIATE_ALGORITHMS)
+- `00`: Param1 (0 algorithm structure tables)
+- `00`: Param2 (Reserved)
 - `40 00`: Length (64 bytes)
-- `01`: Measurement specification (DMTF)
-- `00`: Reserved byte
-- `00 00 00 04`: Base asymmetric algorithms (TPM_ALG_ECDSA_ECC_NIST_P256)
-- `00 00 00 07`: Base hash algorithms (SHA-256, SHA-384, SHA-512)
+- `01`: MeasurementSpecification (DMTF)
+- `00`: OtherParamsSupport (None)
+- `00 00 00 04`: BaseAsymAlgo (TPM_ALG_ECDSA_ECC_NIST_P256)
+- `00 00 00 07`: BaseHashAlgo (SHA-256, SHA-384, SHA-512)
 - `00 00 00 00 00 00 00 00 00 00 00 00`: Reserved bytes
-- `00`: Extended asymmetric algorithm count (0)
-- `00`: Extended hash algorithm count (0)
-- `00`: Reserved byte
+- `00`: ExtAsymCount (0)
+- `00`: ExtHashCount (0)
+- `00 00`: Reserved bytes
 
 **Response (MCTP + SPDM)**:
 ```
-05 63 00 00 24 00 01 00 00 00 00 01 00 00 00 04 00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+05 10 63 00 00 24 00 01 00 00 00 00 01 00 00 00 04 00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 ```
 
 Breakdown:
 - `05`: MCTP header (message type 0x05 for SPDM)
-- `63`: SPDM header (version 1.0, response code 0x63 for ALGORITHMS)
-- `00 00`: Param1 (0) and Param2 (0)
+- `10`: SPDMVersion (SPDM 1.0)
+- `63`: RequestResponseCode (ALGORITHMS)
+- `00`: Param1 (0 algorithm structure tables)
+- `00`: Param2 (Reserved)
 - `24 00`: Length (36 bytes)
-- `01`: Measurement specification selection (DMTF)
-- `00`: Reserved byte
-- `00 00 00 01`: Measurement hash algorithm (SHA-256)
-- `00 00 00 04`: Base asymmetric algorithm selection (TPM_ALG_ECDSA_ECC_NIST_P256)
-- `00 00 00 01`: Base hash algorithm selection (SHA-256)
-- `00 00 00 00 00 00 00 00 00 00 00`: Reserved bytes
-- `00`: Extended asymmetric algorithm selection count (0)
-- `00`: Extended hash algorithm selection count (0)
+- `01`: MeasurementSpecificationSel (DMTF)
+- `00`: OtherParamsSelSupport (None)
+- `00 00 00 01`: MeasurementHashAlgo (SHA-256)
+- `00 00 00 04`: BaseAsymAlgoSel (TPM_ALG_ECDSA_ECC_NIST_P256)
+- `00 00 00 01`: BaseHashAlgoSel (SHA-256)
+- `00 00 00 00 00 00 00 00 00 00 00 00`: Reserved bytes
+- `00`: ExtAsymSelCount (0)
+- `00`: ExtHashSelCount (0)
 - `00 00`: Reserved bytes
 
 #### SPDM 1.1 Example
 
 **Request (MCTP + SPDM)**:
 ```
-05 E3 04 00 60 00 01 00 00 00 00 04 00 00 00 07 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 20 00 08 03 20 00 01 04 20 00 04 05 20 00 01
+05 11 E3 04 00 60 00 01 00 00 00 00 04 00 00 00 07 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 20 00 08 03 20 00 01 04 20 00 04 05 20 00 01
 ```
 
 Breakdown:
 - `05`: MCTP header (message type 0x05 for SPDM)
-- `E3`: SPDM header (version 1.1, request code 0x3 for NEGOTIATE_ALGORITHMS)
-- `04 00`: Param1 (4 algorithm structure tables) and Param2 (0)
+- `11`: SPDMVersion (SPDM 1.1)
+- `E3`: RequestResponseCode (NEGOTIATE_ALGORITHMS)
+- `04`: Param1 (4 algorithm structure tables)
+- `00`: Param2 (Reserved)
 - `60 00`: Length (96 bytes)
-- `01`: Measurement specification (DMTF)
-- `00`: Other parameters (none)
-- `00 00 00 04`: Base asymmetric algorithms (TPM_ALG_ECDSA_ECC_NIST_P256)
-- `00 00 00 07`: Base hash algorithms (SHA-256, SHA-384, SHA-512)
+- `01`: MeasurementSpecification (DMTF)
+- `00`: OtherParamsSupport (None)
+- `00 00 00 04`: BaseAsymAlgo (TPM_ALG_ECDSA_ECC_NIST_P256)
+- `00 00 00 07`: BaseHashAlgo (SHA-256, SHA-384, SHA-512)
 - `00 00 00 00 00 00 00 00 00 00 00 00`: Reserved bytes
-- `00`: Extended asymmetric algorithm count (0)
-- `00`: Extended hash algorithm count (0)
-- `00`: Reserved byte
+- `00`: ExtAsymCount (0)
+- `00`: ExtHashCount (0)
+- `00 00`: Reserved bytes
 - Algorithm structure tables:
   - `02 20 00 08`: DHE named groups (SECP_256_R1)
   - `03 20 00 01`: AEAD cipher suites (AES_128_GCM)
@@ -1363,22 +1818,24 @@ Breakdown:
 
 **Response (MCTP + SPDM)**:
 ```
-05 63 04 00 44 00 01 00 00 00 00 01 00 00 00 04 00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 02 20 00 08 03 20 00 01 04 20 00 04 05 20 00 01
+05 11 63 04 00 44 00 01 00 00 00 00 01 00 00 00 04 00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 02 20 00 08 03 20 00 01 04 20 00 04 05 20 00 01
 ```
 
 Breakdown:
 - `05`: MCTP header (message type 0x05 for SPDM)
-- `63`: SPDM header (version 1.1, response code 0x63 for ALGORITHMS)
-- `04 00`: Param1 (4 algorithm structure tables) and Param2 (0)
+- `11`: SPDMVersion (SPDM 1.1)
+- `63`: RequestResponseCode (ALGORITHMS)
+- `04`: Param1 (4 algorithm structure tables)
+- `00`: Param2 (Reserved)
 - `44 00`: Length (68 bytes)
-- `01`: Measurement specification selection (DMTF)
-- `00`: Other parameters selection (none)
-- `00 00 00 01`: Measurement hash algorithm (SHA-256)
-- `00 00 00 04`: Base asymmetric algorithm selection (TPM_ALG_ECDSA_ECC_NIST_P256)
-- `00 00 00 01`: Base hash algorithm selection (SHA-256)
-- `00 00 00 00 00 00 00 00 00 00 00`: Reserved bytes
-- `00`: Extended asymmetric algorithm selection count (0)
-- `00`: Extended hash algorithm selection count (0)
+- `01`: MeasurementSpecificationSel (DMTF)
+- `00`: OtherParamsSelSupport (None)
+- `00 00 00 01`: MeasurementHashAlgo (SHA-256)
+- `00 00 00 04`: BaseAsymAlgoSel (TPM_ALG_ECDSA_ECC_NIST_P256)
+- `00 00 00 01`: BaseHashAlgoSel (SHA-256)
+- `00 00 00 00 00 00 00 00 00 00 00 00`: Reserved bytes
+- `00`: ExtAsymSelCount (0)
+- `00`: ExtHashSelCount (0)
 - `00 00`: Reserved bytes
 - Algorithm structure tables:
   - `02 20 00 08`: DHE named groups selection (SECP_256_R1)
@@ -1390,23 +1847,25 @@ Breakdown:
 
 **UNEXPECTED_REQUEST Error Response (MCTP + SPDM)**:
 ```
-05 7F 03 00
+05 10 7F 03 00
 ```
 
 Breakdown:
 - `05`: MCTP header (message type 0x05 for SPDM)
-- `7F`: SPDM header (version 1.0, response code 0x7F for ERROR)
+- `10`: SPDMVersion (SPDM 1.0)
+- `7F`: RequestResponseCode (ERROR)
 - `03`: Error code (UNEXPECTED_REQUEST)
 - `00`: Error data
 
 **INVALID_REQUEST Error Response (MCTP + SPDM)**:
 ```
-05 7F 01 00
+05 10 7F 01 00
 ```
 
 Breakdown:
 - `05`: MCTP header (message type 0x05 for SPDM)
-- `7F`: SPDM header (version 1.0, response code 0x7F for ERROR)
+- `10`: SPDMVersion (SPDM 1.0)
+- `7F`: RequestResponseCode (ERROR)
 - `01`: Error code (INVALID_REQUEST)
 - `00`: Error data
 
